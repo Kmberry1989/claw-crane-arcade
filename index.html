@@ -139,8 +139,10 @@
 
     // Prizes
     const loader=new GLTFLoader(), prizes=[];
+    const prizeBase=
+      'https://raw.githubusercontent.com/kmberry1989/claw-crane-arcade/main/assets/models/';
     ['kylecasual','kyleflex','kylelistens','margoplays','shellydreadeddiva','shellyjemima','vickiejams']
-      .forEach(name=>loader.load(`assets/models/${name}.glb`,g=>{const m=g.scene; m.scale.set(0.5,0.5,0.5); m.position.set((Math.random()-0.5)*5,0.6,(Math.random()-0.5)*5); scene.add(m); prizes.push(m);}));
+      .forEach(name=>loader.load(prizeBase+`${name}.glb`,g=>{const m=g.scene; m.scale.set(0.5,0.5,0.5); m.position.set((Math.random()-0.5)*5,0.6,(Math.random()-0.5)*5); scene.add(m); prizes.push(m);}));
 
     let dropping=false, dropDir=-0.05, grabbed=null;
     function setFingers(open){fingers.forEach(f=>{const t=open?f.userData.open:0; f.rotation.z+=(t-f.rotation.z)*0.2;});}

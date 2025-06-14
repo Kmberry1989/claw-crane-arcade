@@ -108,15 +108,17 @@
 
     const loader = new GLTFLoader();
     const prizes = [];
+    const prizeBase =
+      'https://raw.githubusercontent.com/kmberry1989/claw-crane-arcade/main/assets/models/';
     const prizeUrls = [
-      'assets/models/kylecasual.glb',
-      'assets/models/kyleflex.glb',
-      'assets/models/kylelistens.glb',
-      'assets/models/margoplays.glb',
-      'assets/models/shellydreadeddiva.glb',
-      'assets/models/shellyjemima.glb',
-      'assets/models/vickiejams.glb'
-    ];
+      'kylecasual.glb',
+      'kyleflex.glb',
+      'kylelistens.glb',
+      'margoplays.glb',
+      'shellydreadeddiva.glb',
+      'shellyjemima.glb',
+      'vickiejams.glb'
+    ].map(name => prizeBase + name);
 
     prizeUrls.forEach((url, index) => {
       loader.load(url, (gltf) => {
