@@ -2,7 +2,7 @@
 // You can deploy and run this as a browser-based game. We'll allow you to upload your own prize models.
 // This is a foundation to build on. You can customize all models and assets.
 
-import * as THREE from 'three';
+import * as THREE from './node_modules/three/build/three.module.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import * as CANNON from 'cannon-es';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
