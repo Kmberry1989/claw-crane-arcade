@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Claw Crane Game - Coin & Ticket System</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #111; color: #0ff; font-family: monospace; }
+    #score, #credits, #tickets {
+      position: absolute; top: 10px; background: rgba(0,0,0,0.7);
+      padding: 6px 10px; border-radius: 6px; font-size: 16px;
+    }
+    #score { left: 10px; }
+    #credits { left: 200px; }
+    #tickets { left: 350px; }
+    #controls {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 10px; z-index: 10;
+    }
+    button {
+      padding: 10px 16px; font-size: 16px; border-radius: 6px;
+      border: none; background: #ff4444; color: white; cursor: pointer;
+    }
+    #catalog {
+      position: absolute; top: 50px; right: 10px; width: 200px;
+      background: rgba(0,0,0,0.8); padding: 10px; border-radius: 6px; display: none;
+    }
+    #catalog h3 { margin: 0 0 8px 0; font-size: 18px; }
+    .catalog-item { margin: 4px 0; cursor: pointer; }
+    .catalog-item span { float: right; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div id="score">Prizes: 0  Free: 0  Turns: 5</div>
+  <div id="credits">Credits: 0</div>
+  <div id="tickets">Tickets: 0</div>
+  <div id="controls">
+    <button id="insertCoin">💰 Insert Coin</button>
+    <button id="left">⬅️</button>
+    <button id="right">➡️</button>
+    <button id="forward">⬆️</button>
+    <button id="backward">⬇️</button>
+    <button id="drop">🕹️ Drop</button>
+    <button id="toggleCatalog">🎁 Catalog</button>
+  </div>
+  <div id="catalog">
+    <h3>Prize Catalog</h3>
+  </div>
+  <canvas></canvas>
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+    import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
+    import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+
+    // Audio
+    const dropSound = new Audio('assets/sounds/drop.mp3');
+    const grabSound = new Audio('assets/sounds/grab.mp3');
+    const chuteSound = new Audio('assets/sounds/chute.mp3');
+
+    // UI Elements
+    const scoreEl = document.getElementById('score');
+    const creditsEl = document.getElementById('credits');
+    const ticketsEl = document.getElementById('tickets');
+    const catalogEl = document.getElementById('catalog');
+    const catalogBtn = document.getElementById('toggleCatalog');
+
+    // Game State
+    let prizeCount = 0, freeTurns = 0, turns = 5, credits = 0, tickets = 0;
+    const catalog = [
+      { name: 'Stuffed Bear', cost: 50 },
+      { name: 'Toy Car', cost: 30 },
+      { name: 'Keychain', cost: 15 }
+    ];
+
+    function updateUI() {
+      scoreEl.innerText = `Prizes: ${prizeCount}  Free: ${freeTurns}  Turns: ${turns}`;
+      creditsEl.innerText = `Credits: ${credits}`;
+      ticketsEl.innerText = `Tickets: ${tickets}`;
+    }
+
+    // Populate catalog
+    catalog.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'catalog-item';
+      div.innerHTML = `${item.name} <span>${item.cost}</span>`;
+      div.onclick = () => {
+        if (tickets >= item.cost) {
+          tickets -= item.cost;
+          alert(`Redeemed ${item.name}!`);
+          updateUI();
+        } else alert('Not enough tickets');
+      };
+      catalogEl.appendChild(div);
+    });
+
+    catalogBtn.onclick = () => catalogEl.style.display = catalogEl.style.display === 'none' ? 'block' : 'none';
+
+    // Coin insertion
+    document.getElementById('insertCoin').onclick = () => { credits++; turns++; updateUI(); };
+
+    // Three.js Setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 7, 12);
+    const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('canvas'), antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+
+    // Controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enablePan = false;
+    controls.minDistance = 8;
+    controls.maxDistance = 20;
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0x555555));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    dirLight.position.set(10, 20, 10);
+    scene.add(dirLight);
+    const spot = new THREE.SpotLight(0xffeecc, 1.5, 30, Math.PI/6, 0.3);
+    spot.position.set(0, 15, 0);
+    spot.target.position.set(0, 0, 0);
+    scene.add(spot, spot.target);
+
+    // Physics
+    const world = new CANNON.World();
+    world.gravity.set(0, -9.82, 0);
+
+    // Machine
+    const machine = new THREE.Group();
+    scene.add(machine);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0xff0000, metalness: 0.3, roughness: 0.7 });
+    machine.add(new THREE.Mesh(new THREE.BoxGeometry(8, 0.5, 8), baseMat));
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.25 });
+    [[-4,0],[4,0],[0,-4],[0,4]].forEach(([x,z]) => {
+      const geo = new THREE.BoxGeometry(x===0 ? 8 : 0.2, 8, z===0 ? 8 : 0.2);
+      const mesh = new THREE.Mesh(geo, glassMat);
+      mesh.position.set(x, 4, z);
+      machine.add(mesh);
+    });
+    const top = new THREE.Mesh(new THREE.BoxGeometry(8, 0.5, 8), baseMat);
+    top.position.y = 8;
+    machine.add(top);
+
+    // LEDs
+    const ledMat = new THREE.MeshStandardMaterial({ emissive: 0x00ffaa, emissiveIntensity: 1.5, color: 0x003300 });
+    const ledGeo = new THREE.CylinderGeometry(0.1, 0.1, 8, 8);
+    const leds = [[-3.8,4,-3.8],[3.8,4,-3.8],[-3.8,4,3.8],[3.8,4,3.8]].map(pos => {
+      const m = new THREE.Mesh(ledGeo, ledMat);
+      m.position.set(...pos);
+      m.rotation.x = Math.PI/2;
+      machine.add(m);
+      return m;
+    });
+
+    // Chute
+    const chute = new THREE.Mesh(new THREE.BoxGeometry(2,0.2,2), new THREE.MeshStandardMaterial({ color: 0xffff00 }));
+    chute.position.set(0,0.25,-3.5);
+    scene.add(chute);
+
+    // Claw
+    const clawGroup = new THREE.Group();
+    clawGroup.position.set(0,8,0);
+    machine.add(clawGroup);
+    const hub = new THREE.Mesh(new THREE.SphereGeometry(0.3,16,16), new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.7, roughness: 0.3 }));
+    clawGroup.add(hub);
+    const fingerGeo = new THREE.BoxGeometry(0.2,2,0.5);
+    const fingerMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.6, roughness: 0.4 });
+    const fingers = [];
+    for(let i=0; i<3; i++){
+      const f = new THREE.Mesh(fingerGeo, fingerMat);
+      f.position.set(0,-1,0);
+      f.rotation.y = i*2*Math.PI/3;
+      f.userData.open = Math.PI/4;
+      clawGroup.add(f);
+      fingers.push(f);
+    }
+
+    // Balls & Prizes
+    const balls = [];
+    for(let i=0; i<30; i++){
+      const b = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3,16,16),
+        new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(Math.random(),1,0.5) })
+      );
+      b.position.set((Math.random()-0.5)*6,0.5,(Math.random()-0.5)*6);
+      scene.add(b);
+      balls.push(b);
+    }
+    const loader = new GLTFLoader();
+    const prizes=[];
+    ['kylecasual','kyleflex','kylelistens','margoplays','shellydreadeddiva','shellyjemima','vickiejams']
+      .forEach(name => loader.load(`/mnt/data/${name}.glb`, g => {
+        const m = g.scene;
+        m.scale.set(0.5,0.5,0.5);
+        m.position.set((Math.random()-0.5)*5,0.6,(Math.random()-0.5)*5);
+        scene.add(m);
+        prizes.push(m);
+      }));
+
+    // Game Logic
+    let dropping=false, dropDir=-0.05, grabbed=null;
+    function setFingers(open){
+      fingers.forEach(f => {
+        const t = open ? f.userData.open : 0;
+        f.rotation.z += (t - f.rotation.z)*0.2;
+      });
+    }
+    function dropClaw(){
+      if(!dropping && (turns>0 || credits>0)){
+        if(credits>0){ credits--; turns++; }
+        dropping=true;
+        turns--;
+        updateUI();
+        dropSound.play();
+      }
+    }
+    function tryGrab(){
+      [...balls,...prizes].forEach(obj => {
+        if(!grabbed && clawGroup.position.distanceTo(obj.position)<0.75){ grabbed=obj; grabSound.play(); }
+      });
+    }
+    function checkDrop(){
+      if(!grabbed) return;
+      const { x, z } = grabbed.position;
+      if(Math.abs(x)<1 && Math.abs(z+3.5)<1){
+        chuteSound.play();
+        if(balls.includes(grabbed)){ freeTurns++; turns++; }
+        else { prizeCount++; tickets+=10; }
+        scene.remove(grabbed);
+      }
+      grabbed=null;
+      updateUI();
+    }
+
+    // Timer
+    setInterval(() => { freeTurns++; turns++; updateUI(); }, 60000);
+
+    // Animation Loop
+    const clock = new THREE.Clock();
+    function animate(){
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      ledMat.emissiveIntensity = 1.2 + 0.3*Math.sin(t*2);
+      if(dropping){
+        clawGroup.position.y += dropDir;
+        setFingers(true);
+        if(clawGroup.position.y<=2 && dropDir<0){ tryGrab(); dropDir=0.05; }
+        if(clawGroup.position.y>=8 && dropDir>0){ dropping=false; dropDir=-0.05; checkDrop(); }
+      } else setFingers(false);
+      if(grabbed) grabbed.position.set(clawGroup.position.x, clawGroup.position.y-1.5, clawGroup.position.z);
+      controls.update();
+      world.step(1/60);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); });
+
+    updateUI();
+  </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Claw Crane Game</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+    import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
+    import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 5, 10);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(10, 20, 10);
+    scene.add(directionalLight);
+
+    const world = new CANNON.World();
+    world.gravity.set(0, -9.82, 0);
+
+    const machineGroup = new THREE.Group();
+    const baseMaterial = new THREE.MeshStandardMaterial({ color: 'red' });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(8, 0.5, 8), baseMaterial);
+    machineGroup.add(base);
+
+    const glassMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+    [[-4,0],[4,0],[0,-4],[0,4]].forEach(([x,z]) => {
+      const side = new THREE.Mesh(new THREE.BoxGeometry(x === 0 ? 8 : 0.1, 8, z === 0 ? 8 : 0.1), glassMaterial);
+      side.position.set(x,4,z);
+      machineGroup.add(side);
+    });
+
+    const top = new THREE.Mesh(new THREE.BoxGeometry(8, 0.5, 8), baseMaterial);
+    top.position.y = 8;
+    machineGroup.add(top);
+    scene.add(machineGroup);
+
+    const clawGroup = new THREE.Group();
+    const clawArmMaterial = new THREE.MeshStandardMaterial({ color: 'silver' });
+    for (let i = 0; i < 3; i++) {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.3, 2), clawArmMaterial);
+      arm.rotation.z = (i * 2 * Math.PI) / 3;
+      arm.position.y = -1;
+      clawGroup.add(arm);
+    }
+    clawGroup.position.set(0, 8, 0);
+    machineGroup.add(clawGroup);
+
+    const balls = [];
+    for (let i = 0; i < 50; i++) {
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshStandardMaterial());
+      ball.material.color.setHSL(Math.random(), 1, 0.5);
+      ball.position.set((Math.random() - 0.5) * 6, 0.5, (Math.random() - 0.5) * 6);
+      scene.add(ball);
+      balls.push(ball);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      world.step(1/60);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>

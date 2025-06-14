@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Claw Crane Game with Sound and Animation</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+    #controls {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      display: flex; flex-wrap: wrap; gap: 10px; z-index: 10;
+    }
+    button {
+      padding: 10px 20px; font-size: 20px; border-radius: 8px; border: none; background: #ff6666; color: white;
+    }
+    #score {
+      position: absolute; top: 10px; left: 10px; font-size: 20px; color: white; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Prizes Won: 0 | Free Turns: 0 | Turns: 5</div>
+  <div id="controls">
+    <button id="left">⬅️</button>
+    <button id="right">➡️</button>
+    <button id="forward">⬆️</button>
+    <button id="backward">⬇️</button>
+    <button id="drop">🕹️ Drop</button>
+  </div>
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+    import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
+    import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+
+    // Load sounds
+    const dropSound = new Audio("assets/sounds/drop.mp3");
+    const grabSound = new Audio("assets/sounds/grab.mp3");
+    const chuteSound = new Audio("assets/sounds/chute.mp3");
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 5, 10);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    directionalLight.position.set(10, 20, 10);
+    scene.add(directionalLight);
+
+    const spotLight = new THREE.SpotLight(0xfff0cc, 1.5, 20, Math.PI / 4, 0.5, 1);
+    spotLight.position.set(0, 15, 0);
+    spotLight.target.position.set(0, 0, 0);
+    scene.add(spotLight);
+    scene.add(spotLight.target);
+
+    const world = new CANNON.World();
+    world.gravity.set(0, -9.82, 0);
+
+    const machineGroup = new THREE.Group();
+    const baseMaterial = new THREE.MeshStandardMaterial({ color: 'red' });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(8, 0.5, 8), baseMaterial);
+    machineGroup.add(base);
+
+    const glassMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+    [[-4,0],[4,0],[0,-4],[0,4]].forEach(([x,z]) => {
+      const side = new THREE.Mesh(new THREE.BoxGeometry(x === 0 ? 8 : 0.1, 8, z === 0 ? 8 : 0.1), glassMaterial);
+      side.position.set(x,4,z);
+      machineGroup.add(side);
+    });
+
+    const top = new THREE.Mesh(new THREE.BoxGeometry(8, 0.5, 8), baseMaterial);
+    top.position.y = 8;
+    machineGroup.add(top);
+    scene.add(machineGroup);
+
+    const chuteGeometry = new THREE.BoxGeometry(2, 0.2, 2);
+    const chuteMaterial = new THREE.MeshStandardMaterial({ color: 'gold' });
+    const chute = new THREE.Mesh(chuteGeometry, chuteMaterial);
+    chute.position.set(0, 0.3, -3.5);
+    scene.add(chute);
+
+    const clawGroup = new THREE.Group();
+    const clawArmMaterial = new THREE.MeshStandardMaterial({ color: 'silver' });
+    for (let i = 0; i < 3; i++) {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.3, 2), clawArmMaterial);
+      arm.rotation.z = (i * 2 * Math.PI) / 3;
+      arm.position.y = -1;
+      clawGroup.add(arm);
+    }
+    clawGroup.position.set(0, 8, 0);
+    machineGroup.add(clawGroup);
+
+    const balls = [];
+    for (let i = 0; i < 30; i++) {
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshStandardMaterial());
+      ball.material.color.setHSL(Math.random(), 1, 0.5);
+      ball.position.set((Math.random() - 0.5) * 6, 0.5, (Math.random() - 0.5) * 6);
+      scene.add(ball);
+      balls.push(ball);
+    }
+
+    const loader = new GLTFLoader();
+    const prizes = [];
+    const prizeUrls = [
+      '/mnt/data/kylecasual.glb',
+      '/mnt/data/kyleflex.glb',
+      '/mnt/data/kylelistens.glb',
+      '/mnt/data/margoplays.glb',
+      '/mnt/data/shellydreadeddiva.glb',
+      '/mnt/data/shellyjemima.glb',
+      '/mnt/data/vickiejams.glb'
+    ];
+
+    prizeUrls.forEach((url, index) => {
+      loader.load(url, (gltf) => {
+        const model = gltf.scene;
+        model.position.set((Math.random() - 0.5) * 5, 0.6, (Math.random() - 0.5) * 5);
+        model.scale.set(0.5, 0.5, 0.5);
+        scene.add(model);
+        prizes.push(model);
+      });
+    });
+
+    document.getElementById('left').onclick = () => moveClaw(-0.5, 0);
+    document.getElementById('right').onclick = () => moveClaw(0.5, 0);
+    document.getElementById('forward').onclick = () => moveClaw(0, -0.5);
+    document.getElementById('backward').onclick = () => moveClaw(0, 0.5);
+    document.getElementById('drop').onclick = () => dropClaw();
+
+    function moveClaw(dx, dz) {
+      const newX = THREE.MathUtils.clamp(clawGroup.position.x + dx, -3.5, 3.5);
+      const newZ = THREE.MathUtils.clamp(clawGroup.position.z + dz, -3.5, 3.5);
+      clawGroup.position.x = newX;
+      clawGroup.position.z = newZ;
+    }
+
+    let dropping = false;
+    let dropDirection = -0.05;
+    let grabbedObject = null;
+    let prizeCount = 0;
+    let freeTurns = 0;
+    let turns = 5;
+
+    function dropClaw() {
+      if (!dropping && turns > 0) {
+        dropping = true;
+        turns--;
+        updateScore();
+        dropSound.play();
+      }
+    }
+
+    function tryGrab() {
+      const candidates = [...balls, ...prizes];
+      for (let obj of candidates) {
+        const distance = clawGroup.position.distanceTo(obj.position);
+        if (distance < 0.75) {
+          grabbedObject = obj;
+          grabSound.play();
+          break;
+        }
+      }
+    }
+
+    function checkPrizeDrop() {
+      if (!grabbedObject) return;
+      const { x, z } = grabbedObject.position;
+      if (Math.abs(x - 0) < 1 && Math.abs(z + 3.5) < 1) {
+        chuteSound.play();
+        if (balls.includes(grabbedObject)) {
+          freeTurns++;
+          turns++;
+        } else {
+          prizeCount++;
+        }
+        scene.remove(grabbedObject);
+      }
+    }
+
+    function updateScore() {
+      document.getElementById('score').innerText = `Prizes Won: ${prizeCount} | Free Turns: ${freeTurns} | Turns: ${turns}`;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (dropping) {
+        clawGroup.position.y += dropDirection;
+        if (clawGroup.position.y <= 2 && dropDirection < 0) {
+          tryGrab();
+          dropDirection = 0.05;
+        }
+        if (clawGroup.position.y >= 8) {
+          dropDirection = -0.05;
+          dropping = false;
+          checkPrizeDrop();
+          updateScore();
+          grabbedObject = null;
+        }
+        if (grabbedObject) {
+          grabbedObject.position.x = clawGroup.position.x;
+          grabbedObject.position.z = clawGroup.position.z;
+          grabbedObject.position.y = clawGroup.position.y - 1.5;
+        }
+      }
+      controls.update();
+      world.step(1/60);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Free turn timer - 1 free turn every 60 seconds
+    setInterval(() => {
+      freeTurns++;
+      turns++;
+      updateScore();
+    }, 60000);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
