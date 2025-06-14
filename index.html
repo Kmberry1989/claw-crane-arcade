@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>3D Claw Crane Game - Coin & Ticket System</title>
+  <link rel="icon" href="data:;base64,="> <!-- suppress favicon 404 -->
   <style>
     body { margin: 0; overflow: hidden; background: #111; color: #0ff; font-family: monospace; }
     #score, #credits, #tickets {
@@ -51,8 +52,8 @@
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
     import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-    import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
     import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+    import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
 
     // Audio
     const dropSound = new Audio('assets/sounds/drop.mp3');
@@ -167,99 +168,6 @@
     const hub = new THREE.Mesh(new THREE.SphereGeometry(0.3,16,16), new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.7, roughness: 0.3 }));
     clawGroup.add(hub);
     const fingerGeo = new THREE.BoxGeometry(0.2,2,0.5);
-    const fingerMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.6, roughness: 0.4 });
-    const fingers = [];
-    for(let i=0; i<3; i++){
-      const f = new THREE.Mesh(fingerGeo, fingerMat);
-      f.position.set(0,-1,0);
-      f.rotation.y = i*2*Math.PI/3;
-      f.userData.open = Math.PI/4;
-      clawGroup.add(f);
-      fingers.push(f);
-    }
+    const fingerMat = new THREE.MeshStandard
 
-    // Balls & Prizes
-    const balls = [];
-    for(let i=0; i<30; i++){
-      const b = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3,16,16),
-        new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(Math.random(),1,0.5) })
-      );
-      b.position.set((Math.random()-0.5)*6,0.5,(Math.random()-0.5)*6);
-      scene.add(b);
-      balls.push(b);
-    }
-    const loader = new GLTFLoader();
-    const prizes=[];
-    ['kylecasual','kyleflex','kylelistens','margoplays','shellydreadeddiva','shellyjemima','vickiejams']
-      .forEach(name => loader.load(`/mnt/data/${name}.glb`, g => {
-        const m = g.scene;
-        m.scale.set(0.5,0.5,0.5);
-        m.position.set((Math.random()-0.5)*5,0.6,(Math.random()-0.5)*5);
-        scene.add(m);
-        prizes.push(m);
-      }));
-
-    // Game Logic
-    let dropping=false, dropDir=-0.05, grabbed=null;
-    function setFingers(open){
-      fingers.forEach(f => {
-        const t = open ? f.userData.open : 0;
-        f.rotation.z += (t - f.rotation.z)*0.2;
-      });
-    }
-    function dropClaw(){
-      if(!dropping && (turns>0 || credits>0)){
-        if(credits>0){ credits--; turns++; }
-        dropping=true;
-        turns--;
-        updateUI();
-        dropSound.play();
-      }
-    }
-    function tryGrab(){
-      [...balls,...prizes].forEach(obj => {
-        if(!grabbed && clawGroup.position.distanceTo(obj.position)<0.75){ grabbed=obj; grabSound.play(); }
-      });
-    }
-    function checkDrop(){
-      if(!grabbed) return;
-      const { x, z } = grabbed.position;
-      if(Math.abs(x)<1 && Math.abs(z+3.5)<1){
-        chuteSound.play();
-        if(balls.includes(grabbed)){ freeTurns++; turns++; }
-        else { prizeCount++; tickets+=10; }
-        scene.remove(grabbed);
-      }
-      grabbed=null;
-      updateUI();
-    }
-
-    // Timer
-    setInterval(() => { freeTurns++; turns++; updateUI(); }, 60000);
-
-    // Animation Loop
-    const clock = new THREE.Clock();
-    function animate(){
-      requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
-      ledMat.emissiveIntensity = 1.2 + 0.3*Math.sin(t*2);
-      if(dropping){
-        clawGroup.position.y += dropDir;
-        setFingers(true);
-        if(clawGroup.position.y<=2 && dropDir<0){ tryGrab(); dropDir=0.05; }
-        if(clawGroup.position.y>=8 && dropDir>0){ dropping=false; dropDir=-0.05; checkDrop(); }
-      } else setFingers(false);
-      if(grabbed) grabbed.position.set(clawGroup.position.x, clawGroup.position.y-1.5, clawGroup.position.z);
-      controls.update();
-      world.step(1/60);
-      renderer.render(scene, camera);
-    }
-    animate();
-
-    window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); });
-
-    updateUI();
-  </script>
-</body>
-</html>
+    
