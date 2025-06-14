@@ -34,11 +34,10 @@
   <div id="catalog"><h3>Prize Catalog</h3></div>
   <canvas></canvas>
   <script type="module">
-    // Use explicit CDN paths to avoid bare specifier errors
-    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-    import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-    import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
+    import * as THREE from './node_modules/three/build/three.module.js';
+    import { OrbitControls } from './node_modules/three/examples/jsm/controls/OrbitControls.js';
+    import { GLTFLoader } from './node_modules/three/examples/jsm/loaders/GLTFLoader.js';
+    import * as CANNON from './node_modules/cannon-es/dist/cannon-es.js';
 
     // Audio
     const dropSound = new Audio('assets/sounds/drop.mp3');
@@ -140,7 +139,7 @@
     // Prizes
     const loader=new GLTFLoader(), prizes=[];
     ['kylecasual','kyleflex','kylelistens','margoplays','shellydreadeddiva','shellyjemima','vickiejams']
-      .forEach(name=>loader.load(`/mnt/data/${name}.glb`,g=>{const m=g.scene; m.scale.set(0.5,0.5,0.5); m.position.set((Math.random()-0.5)*5,0.6,(Math.random()-0.5)*5); scene.add(m); prizes.push(m);}));
+      .forEach(name=>loader.load(`assets/models/${name}.glb`,g=>{const m=g.scene; m.scale.set(0.5,0.5,0.5); m.position.set((Math.random()-0.5)*5,0.6,(Math.random()-0.5)*5); scene.add(m); prizes.push(m);}));
 
     let dropping=false, dropDir=-0.05, grabbed=null;
     function setFingers(open){fingers.forEach(f=>{const t=open?f.userData.open:0; f.rotation.z+=(t-f.rotation.z)*0.2;});}

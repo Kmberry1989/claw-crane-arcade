@@ -29,10 +29,10 @@
     <button id="drop">🕹️ Drop</button>
   </div>
   <script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-    import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
-    import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+    import * as THREE from './node_modules/three/build/three.module.js';
+    import { OrbitControls } from './node_modules/three/examples/jsm/controls/OrbitControls.js';
+    import * as CANNON from './node_modules/cannon-es/dist/cannon-es.js';
+    import { GLTFLoader } from './node_modules/three/examples/jsm/loaders/GLTFLoader.js';
 
     // Load sounds
     const dropSound = new Audio("assets/sounds/drop.mp3");
@@ -109,13 +109,13 @@
     const loader = new GLTFLoader();
     const prizes = [];
     const prizeUrls = [
-      '/mnt/data/kylecasual.glb',
-      '/mnt/data/kyleflex.glb',
-      '/mnt/data/kylelistens.glb',
-      '/mnt/data/margoplays.glb',
-      '/mnt/data/shellydreadeddiva.glb',
-      '/mnt/data/shellyjemima.glb',
-      '/mnt/data/vickiejams.glb'
+      'assets/models/kylecasual.glb',
+      'assets/models/kyleflex.glb',
+      'assets/models/kylelistens.glb',
+      'assets/models/margoplays.glb',
+      'assets/models/shellydreadeddiva.glb',
+      'assets/models/shellyjemima.glb',
+      'assets/models/vickiejams.glb'
     ];
 
     prizeUrls.forEach((url, index) => {
